@@ -89,7 +89,7 @@ const CustomerView = () => {
           </div>
           <div style={{ flex: 1 }}>
             <div style={{ color: "#fff", fontWeight: 700, fontSize: 14 }}>{customerName}</div>
-            <div style={{ color: "rgba(255,255,255,0.55)", fontSize: 11 }}>Customer · {transacts.length} transactions</div>
+            <div style={{ color: "rgba(255,255,255,0.55)", fontSize: 11 }}>Supplier · {transacts.length} transactions</div>
           </div>
           <div style={{ textAlign: "right" }}>
             <div style={{ fontFamily: "Sora,sans-serif", fontWeight: 800, fontSize: 16, color: theyOwe ? "#6EE7B7" : iOwe ? "#FCA5A5" : "rgba(255,255,255,0.5)" }}>{fmt(total)}</div>

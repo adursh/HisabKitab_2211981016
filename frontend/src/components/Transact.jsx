@@ -2,102 +2,60 @@ import React, { useContext, useState } from "react";
 import { UserContext } from "../contexts/UserContext";
 import { toast } from "sonner";
 
-const Transact = ({ setAddTransPop, fetchAllTransacts }) => {
+const Transact = ({ setShowTransact }) => {
   const { transData, fetchData } = useContext(UserContext);
-  const [data, setData] = useState({
-    amount: "",
-    note: "",
-  });
-
-  const handleChange = (e) => {
-    setData({ ...data, [e.target.name]: e.target.value });
-  };
-
-  const text = `${transData.transType ? "Take from " : "Give to "}${
-    transData.customerName
-  }`;
+  const [amount, setAmount] = useState("");
+  const [note, setNote] = useState("");
+  const [loading, setLoading] = useState(false);
+  const isReceiving = transData.transType === 1;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    let amount = data.amount;
-    if(amount<=0) return toast.warning("Please enter positive value");
-    console.log(transData.isSupplier, transData.transType);
-    if (!transData.isSupplier) {
-      if (transData.transType) {
-        amount = -Math.abs(Number(amount));
-      }
-    } else {
-      if (!transData.transType) {
-        amount = -Math.abs(Number(amount));
-      }
-    }
+    if (!amount || Number(amount) <= 0) return toast.error("Enter a valid amount");
+    setLoading(true);
+    let amt = Number(amount);
+    if (!transData.isSupplier) { if (transData.transType) amt = -Math.abs(amt); }
+    else { if (!transData.transType) amt = -Math.abs(amt); }
 
-    const baseUrl = import.meta.env.VITE_BACKEND_URL;
-    const token = localStorage.getItem("token");
     try {
-      const res = await fetch(`${baseUrl}/api/transact/addtransact`, {
+      const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/transact/addtransact`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          note: data.note,
-          amount,
-          customerId: transData.customerId,
-        }),
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${localStorage.getItem("token")}` },
+        body: JSON.stringify({ amount: amt, note, customerId: transData.customerId }),
       });
-      const resData = await res.json();
-      if (!res.ok) throw new Error(resData.message || "unpected error");
-      toast.success(resData.message);
-      setAddTransPop(false);
-      if (fetchAllTransacts) {
-        fetchAllTransacts();
-      } else {
-        fetchData();
-      }
-    } catch (err) {
-      toast.error(err.message);
-    }
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message);
+      toast.success("Entry recorded!");
+      setShowTransact(false);
+      fetchData();
+    } catch (err) { toast.error(err.message); }
+    finally { setLoading(false); }
   };
 
   return (
-    <div>
-      <form onSubmit={handleSubmit}>
-        <input
-          value={data.amount}
-          onChange={(e) => handleChange(e)}
-          required
-          name="amount"
-          type="number"
-          className="p-1 border rounded-md w-full mt-2"
-          placeholder="Enter amount"
-        />
-        <input
-          value={data.note}
-          onChange={(e) => handleChange(e)}
-          name="note"
-          type="text"
-          className="p-1 border rounded-md w-full mt-2"
-          placeholder="Enter Note (optional)"
-        />
-        <div className="flex gap-2">
-          <button
-            className={`w-full p-2 ${
-              transData.transType ? "bg-emerald-500" : "bg-red-500"
-            } rounded-md mt-2`}
-          >
-            {text}
-          </button>
-
-          <button
-            onClick={() => setAddTransPop(false)}
-            className=" p-2 bg-yellow-500 rounded-md mt-2"
-          >
-            Cancel
-          </button>
+    <div className="overlay" onClick={() => setShowTransact(false)}>
+      <div className="sheet" onClick={e => e.stopPropagation()}>
+        <div className="sheet-handle" />
+        <div style={{ fontFamily: "Sora,sans-serif", fontWeight: 800, fontSize: 18, marginBottom: 4 }}>
+          {isReceiving ? "Record Payment Received" : "Record Payment Made"}
         </div>
-      </form>
+        <div style={{ fontSize: 13, color: "#667085", marginBottom: 20 }}>
+          {isReceiving ? `Got money from` : `Paid money to`} <strong>{transData.customerName}</strong>
+        </div>
+        <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <div style={{ position: "relative" }}>
+            <span style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)", fontFamily: "Sora,sans-serif", fontWeight: 800, fontSize: 22, color: isReceiving ? "#00875A" : "#D92D20" }}>₹</span>
+            <input autoFocus className="input" type="number" placeholder="0.00" value={amount} onChange={e => setAmount(e.target.value)} style={{ paddingLeft: 36, fontFamily: "Sora,sans-serif", fontWeight: 800, fontSize: 22, height: 56 }} />
+          </div>
+          <input className="input" type="text" placeholder="Add a note (optional)" value={note} onChange={e => setNote(e.target.value)} />
+          <div style={{ display: "flex", gap: 10 }}>
+            <button type="submit" disabled={loading} className="btn" style={{ flex: 2, padding: "13px", background: isReceiving ? "#00875A" : "#D92D20", color: "#fff", fontSize: 15, opacity: loading ? 0.7 : 1 }}>
+              {loading ? "Saving..." : isReceiving ? "✓ Confirm Received" : "✓ Confirm Paid"}
+            </button>
+            <button type="button" className="btn btn-ghost" onClick={() => setShowTransact(false)} style={{ flex: 1, padding: "13px" }}>Cancel</button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 };
