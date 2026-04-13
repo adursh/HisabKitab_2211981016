@@ -14,7 +14,7 @@ const Transact = ({ setShowTransact }) => {
     if (!amount || Number(amount) <= 0) return toast.error("Enter a valid amount");
     setLoading(true);
     let amt = Number(amount);
-    if (!transData.isSupplier) { if (transData.transType) amt = -Math.abs(amt); }
+    if (!transData.isSupplier) { if (!transData.transType) amt = -Math.abs(amt); }
     else { if (!transData.transType) amt = -Math.abs(amt); }
 
     try {

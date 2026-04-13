@@ -18,13 +18,13 @@ const Reports = () => {
   const toReceive = records.reduce((s, r) => {
     if (!r || !user) return s;
     const net = r.userId != user.userId ? -r.totalAmount : r.totalAmount;
-    return net < 0 ? s + Math.abs(net) : s;
+    return net > 0 ? s + Math.abs(net) : s;
   }, 0);
 
   const toPay = records.reduce((s, r) => {
     if (!r || !user) return s;
     const net = r.userId != user.userId ? -r.totalAmount : r.totalAmount;
-    return net > 0 ? s + net : s;
+    return net < 0 ? s + Math.abs(net) : s; // theyOwe
   }, 0);
 
   const topDebtors = user?.customers?.map((c, i) => {
@@ -138,8 +138,8 @@ const Reports = () => {
                     <tr key={c._id} style={{ borderBottom: "1px solid #F9FAFB" }} onMouseEnter={e => e.currentTarget.style.background = "#F9FAFB"} onMouseLeave={e => e.currentTarget.style.background = ""}>
                       <td style={{ padding: "11px 16px", fontWeight: 600, fontSize: 14 }}>{c.name}</td>
                       <td style={{ padding: "11px 16px" }}><span className={`badge ${isSupplier ? "badge-blue" : "badge-gray"}`}>{isSupplier ? "Supplier" : "Customer"}</span></td>
-                      <td style={{ padding: "11px 16px", fontFamily: "Sora,sans-serif", fontWeight: 700, color: net < 0 ? "#00875A" : net > 0 ? "#D92D20" : "#98A2B3" }}>{fmt(r.totalAmount)}</td>
-                      <td style={{ padding: "11px 16px" }}><span className={`badge ${settled ? "badge-gray" : net < 0 ? "badge-green" : "badge-red"}`}>{settled ? "Settled" : net < 0 ? "To Receive" : "To Pay"}</span></td>
+                      <td style={{ padding: "11px 16px", fontFamily: "Sora,sans-serif", fontWeight: 700, color: net > 0 ? "#00875A" : net < 0 ? "#D92D20" : "#98A2B3" }}>{fmt(r.totalAmount)}</td>
+                      <td style={{ padding: "11px 16px" }}><span className={`badge ${settled ? "badge-gray" : net > 0 ? "badge-green" : "badge-red"}`}>{settled ? "Settled" : net > 0 ? "To Receive" : "To Pay"}</span></td>
                     </tr>
                   );
                 })}

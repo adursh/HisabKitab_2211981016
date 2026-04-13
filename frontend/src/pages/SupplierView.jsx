@@ -24,9 +24,13 @@ const CustomerView = () => {
   const isShop = accountType === "shopkeeper";
 
   const total = record?.totalAmount || 0;
-  const displayNet = isSupplier ? -total : total;
-  const theyOwe = displayNet < 0;
-  const iOwe = displayNet > 0;
+
+  // positive total = Got money (I owe them)
+  // negative total = Paid money (they owe me)
+  // For supplier: flip perspective
+  const netFromMyPerspective = isSupplier ? -total : total;
+  const iOwe = netFromMyPerspective > 0;    // I owe them — red
+  const theyOwe = netFromMyPerspective < 0; // They owe me — green
 
   const fmt = (n) => `₹${Math.abs(n).toLocaleString("en-IN")}`;
 
@@ -57,8 +61,11 @@ const CustomerView = () => {
     if (!amount || Number(amount) <= 0) return toast.error("Enter a valid amount");
     setLoading(true);
     let amt = Number(amount);
-    if (!isSupplier) { if (transType) amt = -Math.abs(amt); }
-    else { if (!transType) amt = -Math.abs(amt); }
+    // Got (transType=1) = received money = positive (I owe)
+    // Paid (transType=0) = gave money = negative (they owe)
+    // For supplier: flip
+    if (!isSupplier) { if (!transType) amt = -Math.abs(amt); }
+    else { if (transType) amt = -Math.abs(amt); }
 
     try {
       const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/transact/addtransact`, {
@@ -83,17 +90,18 @@ const CustomerView = () => {
         <div style={{ maxWidth: 720, margin: "0 auto", padding: "0 16px", height: 56, display: "flex", alignItems: "center", gap: 10 }}>
           <button onClick={() => navigate(-1)} style={{ width: 34, height: 34, background: "rgba(255,255,255,0.12)", border: "none", borderRadius: 8, color: "#fff", cursor: "pointer", fontSize: 18, display: "flex", alignItems: "center", justifyContent: "center" }}>←</button>
           <button onClick={() => navigate(1)} style={{ width: 34, height: 34, background: "rgba(255,255,255,0.12)", border: "none", borderRadius: 8, color: "#fff", cursor: "pointer", fontSize: 18, display: "flex", alignItems: "center", justifyContent: "center" }}>→</button>
-
           <div style={{ width: 34, height: 34, background: "rgba(255,255,255,0.15)", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 800, fontSize: 15, fontFamily: "Sora,sans-serif" }}>
             {customerName[0].toUpperCase()}
           </div>
           <div style={{ flex: 1 }}>
             <div style={{ color: "#fff", fontWeight: 700, fontSize: 14 }}>{customerName}</div>
-            <div style={{ color: "rgba(255,255,255,0.55)", fontSize: 11 }}>Supplier · {transacts.length} transactions</div>
+            <div style={{ color: "rgba(255,255,255,0.55)", fontSize: 11 }}>{isSupplier ? "Supplier" : "Customer"} · {transacts.length} transactions</div>
           </div>
           <div style={{ textAlign: "right" }}>
             <div style={{ fontFamily: "Sora,sans-serif", fontWeight: 800, fontSize: 16, color: theyOwe ? "#6EE7B7" : iOwe ? "#FCA5A5" : "rgba(255,255,255,0.5)" }}>{fmt(total)}</div>
-            <div style={{ fontSize: 11, color: "rgba(255,255,255,0.55)" }}>{Math.abs(total) === 0 ? "Settled" : theyOwe ? "to receive" : "to pay"}</div>
+            <div style={{ fontSize: 11, color: "rgba(255,255,255,0.65)", fontWeight: 600 }}>
+              {Math.abs(total) === 0 ? "Settled" : theyOwe ? "You Get" : "You Pay"}
+            </div>
           </div>
         </div>
       </header>
@@ -111,7 +119,6 @@ const CustomerView = () => {
       <div style={{ flex: 1, overflow: "auto", maxWidth: 720, margin: "0 auto", width: "100%", padding: "12px 16px" }}>
         {transacts.length === 0 && (
           <div style={{ textAlign: "center", padding: "48px 20px" }}>
-            <div style={{ fontSize: 36, marginBottom: 12 }}>📋</div>
             <div style={{ fontFamily: "Sora,sans-serif", fontWeight: 700, fontSize: 16, color: "#344054" }}>No transactions yet</div>
             <div style={{ fontSize: 13, color: "#98A2B3", marginTop: 6 }}>Add the first entry below.</div>
           </div>
@@ -119,20 +126,33 @@ const CustomerView = () => {
 
         {transacts.map((t, i) => {
           const isMine = customerId !== t.userId?.toString();
+          // positive amount = Got (I owe), negative = Paid (they owe)
+          // For display color: Got = red (I owe them), Paid = green (they owe me)
+          // Supplier flips this
           let tColor, tBg;
-          if (isSupplier) { tColor = t.amount < 0 ? "#D92D20" : "#00875A"; tBg = t.amount < 0 ? "#FEF3F2" : "#E3FBF4"; }
-          else { tColor = t.amount > 0 ? "#D92D20" : "#00875A"; tBg = t.amount > 0 ? "#FEF3F2" : "#E3FBF4"; }
+          if (!isSupplier) {
+            tColor = t.amount > 0 ? "#D92D20" : "#00875A";
+            tBg   = t.amount > 0 ? "#FEF3F2" : "#E3FBF4";
+          } else {
+            tColor = t.amount < 0 ? "#D92D20" : "#00875A";
+            tBg   = t.amount < 0 ? "#FEF3F2" : "#E3FBF4";
+          }
 
           const addedBy = isMine ? "You" : customerName;
           const currDate = dayjs(t.date).format("D MMM YYYY");
           const prevDate = i === 0 ? null : dayjs(transacts[i - 1].date).format("D MMM YYYY");
+
+          // Running balance display
           const runNet = isSupplier ? -t.totalAmount : t.totalAmount;
+          const runColor = runNet > 0 ? "#D92D20" : runNet < 0 ? "#00875A" : "#98A2B3";
+          const runLabel = runNet === 0 ? "Settled" : runNet > 0 ? "You Pay" : "You Get";
 
           return (
             <React.Fragment key={t._id}>
               {currDate !== prevDate && <div className="date-divider">{currDate}</div>}
               <div style={{ display: "flex", justifyContent: isMine ? "flex-start" : "flex-end", marginBottom: 8 }}>
-                <div onClick={() => setEditTrans({ ...t, isSupplier, addedBy })} style={{ cursor: "pointer", background: tBg, borderRadius: 12, padding: "12px 14px", maxWidth: "72%", boxShadow: "0 1px 3px rgba(0,0,0,0.06)", borderLeft: `3px solid ${tColor}`, transition: "transform 0.15s" }}
+                <div onClick={() => setEditTrans({ ...t, isSupplier, addedBy })}
+                  style={{ cursor: "pointer", background: tBg, borderRadius: 12, padding: "12px 14px", maxWidth: "72%", boxShadow: "0 1px 3px rgba(0,0,0,0.06)", borderLeft: `3px solid ${tColor}`, transition: "transform 0.15s" }}
                   onMouseEnter={e => e.currentTarget.style.transform = "translateY(-1px)"}
                   onMouseLeave={e => e.currentTarget.style.transform = "none"}>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, marginBottom: 4 }}>
@@ -144,7 +164,7 @@ const CustomerView = () => {
                   </div>
                   {t.note && <div style={{ fontSize: 12, color: "#475467", marginTop: 3 }}>{t.note}</div>}
                   <div style={{ fontSize: 11, color: "#98A2B3", marginTop: 6, paddingTop: 6, borderTop: "1px solid rgba(0,0,0,0.06)", display: "flex", justifyContent: "space-between" }}>
-                    <span>Balance: <strong style={{ color: runNet < 0 ? "#00875A" : "#D92D20" }}>{fmt(t.totalAmount)}</strong></span>
+                    <span>Balance: <strong style={{ color: runColor }}>{fmt(t.totalAmount)} {runLabel}</strong></span>
                     {t.isDeleted && <span style={{ color: "#D92D20" }}>Deleted</span>}
                   </div>
                 </div>
@@ -159,7 +179,6 @@ const CustomerView = () => {
       <div style={{ background: "#fff", borderTop: "1px solid #E4E7EC", position: "sticky", bottom: 0, maxWidth: 720, margin: "0 auto", width: "100%" }}>
         {showAdd ? (
           <form onSubmit={handleAddTrans} style={{ padding: "14px 16px" }}>
-            {/* Type Toggle */}
             <div className="tab-bar" style={{ marginBottom: 10 }}>
               <button type="button" className={`tab-item ${transType === 1 ? "active" : ""}`} onClick={() => setTransType(1)} style={{ color: transType === 1 ? "#00875A" : "" }}>+ Got (Received)</button>
               <button type="button" className={`tab-item ${transType === 0 ? "active" : ""}`} onClick={() => setTransType(0)} style={{ color: transType === 0 ? "#D92D20" : "" }}>− Paid (Given)</button>
@@ -190,7 +209,6 @@ const CustomerView = () => {
         )}
       </div>
 
-      {/* Edit Sheet */}
       {editTrans && (
         <div className="overlay" onClick={() => setEditTrans(null)}>
           <div className="sheet" onClick={e => e.stopPropagation()}>
